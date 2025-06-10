@@ -109,7 +109,17 @@ def main():
         page_icon=":airplane:",
         layout="wide"
     )
+
+    #CSS for custom styling
+    st.markdown("""
+    <style>
+    .stForm {
+        border: none !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
     
+
     initialize_session_state()
     
     st.title("Welcome to Tripy")
@@ -134,7 +144,7 @@ def main():
                     
                     for chunk in get_chatbot_response_stream(st.session_state.current_user_input):
                         full_response += chunk
-                        response_placeholder.write(full_response + "▌")  # Cursor effect
+                        response_placeholder.write(full_response + "▌") 
                     
                     response_placeholder.markdown(full_response)
 
@@ -146,26 +156,31 @@ def main():
                     st.session_state.current_user_input = ""
 
                     st.rerun()  # Rerun to update chat history
-    
+                    
+
     # Input form
     with st.form("prompt_form", clear_on_submit=True):
-        cols = st.columns([6, 1])
-        
-        # Using text_area instead of text_input for multiline support
-        user_input = cols[0].text_area(
-            "Ask me anything about your trip...", 
-            placeholder="e.g., Plan a 4-day trip to Paris for $2000",
-            label_visibility="collapsed", 
-            key="human_prompt",
-            height=70,
-            help="💡 Tip: Use Shift+Enter for new lines, Ctrl+Enter to send"
-        )
-        
-        submitted = cols[1].form_submit_button(
-            "Send", 
-            type="primary", 
-            on_click=on_click_callback
-        )
+        cols = st.columns([8, 1])  # 8 parts for text area, 1 part for button
+
+        with cols[0]:
+            user_input = st.text_area(
+                "Ask me anything about your trip...", 
+                placeholder="e.g., Plan a 4-day trip to Paris for $2000",
+                label_visibility="collapsed", 
+                key="human_prompt",
+                height=70
+            )
+
+        with cols[1]:
+            # Add spacing to vertically center the button
+            st.write("")
+            st.write("")  # Empty space
+            submitted = st.form_submit_button(
+                " ➤ Send", 
+                type="primary", 
+                on_click=on_click_callback,
+            )
+
     
     # Sidebar with app info
     with st.sidebar:
