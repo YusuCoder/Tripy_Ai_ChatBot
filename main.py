@@ -15,11 +15,12 @@ load_dotenv(dotenv_path="./config/.env")
 
 def get_travel_agent():
     llm = init_chat_model(
-        model="openai:gpt-4o-mini",  # Changed to a more reliable model
+        model="openai:gpt-4o-mini",
         base_url="https://openrouter.ai/api/v1",
         api_key=os.getenv("API_KEY"),
         temperature=0.7,
-        max_tokens=1000,  # Increased for better responses
+        max_tokens=1000,
+        frequency_penalty=0.5,
     )
     
     memory = ConversationBufferMemory(
@@ -29,7 +30,7 @@ def get_travel_agent():
 
     tools = [create_weather_tool()]
 
-    # Create a chat prompt template for the agent
+    # Defining a chat prompt template for the agent for how the LLM should behave 
     prompt = ChatPromptTemplate.from_messages([
         ("system", get_system_prompt()),
         ("placeholder", "{chat_history}"),
@@ -37,10 +38,10 @@ def get_travel_agent():
         ("placeholder", "{agent_scratchpad}"),
     ])
 
-    # Create the tool-calling agent
+    # Constructing a tool-using agent that can dynamically call the weather tool based on input
     agent = create_tool_calling_agent(llm, tools, prompt)
     
-    # Create the agent executor
+    # Setting up the agent executor with the defined agent and tools, handling parsing errors, and limiting iterations
     agent_executor = AgentExecutor(
         agent=agent,
         tools=tools,
@@ -49,16 +50,16 @@ def get_travel_agent():
         max_iterations=3,
     )
 
-    # For Streamlit compatibility, we'll create a simple wrapper
+    # For Streamlit compatibility, a simple wrapper arount the agent for use in streamlit
     class StreamableAgent:
         def __init__(self, agent_executor, llm):
             self.agent_executor = agent_executor
             self.llm = llm
             
         def invoke(self, messages):
-            # Handle both message format and direct input
+            # Handling both message format and direct input
             if isinstance(messages, list):
-                # Extract the last human message
+                # Extracting the last user message
                 user_input = ""
                 chat_history = []
                 for msg in messages:
@@ -66,7 +67,7 @@ def get_travel_agent():
                         if msg.__class__.__name__ == 'HumanMessage':
                             user_input = msg.content
                         elif msg.__class__.__name__ == 'SystemMessage':
-                            continue  # Skip system messages for history
+                            continue                    # Skiping system messages for history
                         else:
                             chat_history.append(msg)
                 
@@ -78,7 +79,7 @@ def get_travel_agent():
                 return self.agent_executor.invoke(messages)
         
         def stream(self, messages):
-            # For streaming, we'll use the LLM directly with a simplified approach
+            # For streaming, i use the LLM directly with a simplified approach
             if isinstance(messages, list):
                 # Convert messages to a single prompt
                 prompt_parts = []
@@ -108,6 +109,8 @@ def get_travel_agent():
     return streamable_agent, memory
 
 
+# This function defines the core personality and logic of the travel agent.
+# It instructs the agent to: 
 def get_system_prompt():
     return """
         You are a travel agent specializing in creating personalized trip itineraries.
@@ -119,6 +122,7 @@ def get_system_prompt():
         - Adapting to different travel styles (e.g., adventure, relaxation, cultural immersion, etc.)
         - Using current weather and forecasts to suggest appropriate activities
         - Considering travel logistics and timing
+        - While choosing the restaurants ask user about their preferences (e.g., vegetarian, vegan, local cuisine, etc.)
 
         IMPORTANT: When planning trips, always check the weather for the destination to provide weather-appropriate recommendations. 
         Use the most accurate weather informations to give exact advice when users mention a destination.
