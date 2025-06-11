@@ -107,22 +107,18 @@ def main():
     st.set_page_config(
         page_title="Tripy - Smart Trip Planner",
         page_icon=":airplane:",
-        layout="wide"
+        # layout="wide"
     )
-
-    #CSS for custom styling
-    st.markdown("""
-    <style>
-    .stForm {
-        border: none !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
     
-
     initialize_session_state()
     
-    st.title("Welcome to Tripy")
+    # Title and header with custom styling
+    st.markdown(
+        """
+        <h1 style='text-align: center; margin-bottom: 0.5rem;'>🌏  Welcome to Tripy</h1>
+        """,
+        unsafe_allow_html=True
+    )
     
     # Chat container
     chat_placeholder = st.container()
@@ -144,7 +140,7 @@ def main():
                     
                     for chunk in get_chatbot_response_stream(st.session_state.current_user_input):
                         full_response += chunk
-                        response_placeholder.write(full_response + "▌") 
+                        response_placeholder.write(full_response + "▌")  # Cursor effect
                     
                     response_placeholder.markdown(full_response)
 
@@ -156,32 +152,53 @@ def main():
                     st.session_state.current_user_input = ""
 
                     st.rerun()  # Rerun to update chat history
-                    
 
-    # Input form
-    with st.form("prompt_form", clear_on_submit=True):
-        cols = st.columns([8, 1])  # 8 parts for text area, 1 part for button
-
-        with cols[0]:
-            user_input = st.text_area(
-                "Ask me anything about your trip...", 
-                placeholder="e.g., Plan a 4-day trip to Paris for $2000",
-                label_visibility="collapsed", 
-                key="human_prompt",
-                height=70
-            )
-
-        with cols[1]:
-            # Add spacing to vertically center the button
-            st.write("")
-            st.write("")  # Empty space
-            submitted = st.form_submit_button(
-                " ➤ Send", 
-                type="primary", 
-                on_click=on_click_callback,
-            )
-
+    # Custom CSS for styling
+    st.markdown("""
+        <style>
+            .stForm {
+                position: relative;
+            }
+            
+            .stForm > div:last-child {
+                display: flex;
+                justify-content: flex-end;
+                margin-top: 0.2rem;
+            }
+            
+            .stForm button {
+                border-radius: 20px;
+                padding: 0.5rem 1.5rem;
+                font-weight: 600;
+            }
+            
+            /* Make text area container relative for positioning */
+            .stTextArea {
+                margin-bottom: 0.2rem;
+            }
+        </style>
+        """, unsafe_allow_html=True)
     
+    # Input form.
+    with st.form("prompt_form", clear_on_submit=True):
+        user_input = st.text_area(
+            "Ask me anything about your trip...", 
+            placeholder="e.g., Plan a 4-day trip to Paris for €2000",
+            label_visibility="collapsed", 
+            key="human_prompt",
+            height=70,
+            help="Tip: Use Shift+Enter for new lines, Ctrl+Enter to send"
+        )
+    
+        # Create columns for button positioning
+        col1, col2, col3 = st.columns([3, 1, 1])
+        with col3:
+            submitted = st.form_submit_button(
+                "Send ➤", 
+                type="primary",
+                on_click=on_click_callback
+            )
+
     # Sidebar with app info
     with st.sidebar:
         st.markdown("### 🔥Features")
