@@ -54,6 +54,7 @@ class WeatherTool(BaseTool):
 
         except Exception as e:
             return f"An error occurred while fetching weather data: {str(e)}"
+        
     async def _arun(self, city: str, country_code: Optional[dict] = None) -> str:
         """Async version, just call the sync version for now"""
         return self._run(city, country_code)
