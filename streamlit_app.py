@@ -4,11 +4,11 @@ from typing import Literal
 import os
 from dotenv import load_dotenv
 
-# Import your chatbot functions
+# Importing your chatbot functions
 from main import get_travel_agent, get_system_prompt
 from langchain_core.messages import HumanMessage, SystemMessage
 
-# Load environment variables
+# Loading environment variables
 load_dotenv(dotenv_path="./config/.env")
 
 @dataclass
@@ -18,70 +18,81 @@ class Message:
 
 def initialize_chatbot():
     """Initialize the travel agent and memory (only once per session)"""
-    # This function is now integrated into initialize_session_state()
-    pass
+    if "travel_agent" not in st.session_state:
+        st.session_state.travel_agent, st.session_state.memory = get_travel_agent()
+        st.session_state.system_prompt = get_system_prompt()
 
-def get_chatbot_response(user_input: str) -> str:
-    """Get response from your travel chatbot"""
+def get_chatbot_response_stream(user_input: str):
+    """Get streaming response from your travel chatbot"""
     try:
-        # Get conversation history from memory
+        # Getting conversation history from memory
         history = st.session_state.memory.chat_memory.messages
         
-        # Create the full conversation context
+        # Creating the full conversation context
         messages = [SystemMessage(content=st.session_state.system_prompt)]
         messages.extend(history)  # Add stored conversation history
         messages.append(HumanMessage(content=user_input))  # Add current input
         
-        # Get response from travel agent (using invoke method like your main.py)
-        response = st.session_state.travel_agent.invoke(messages)
+        # Streaming response from travel agent
+        full_response = ""
+        for chunk in st.session_state.travel_agent.stream(messages):
+            if hasattr(chunk, 'content') and chunk.content:
+                full_response += chunk.content
+                yield chunk.content
         
-        # Save this exchange to memory
+        # Saving this exchange to memory after streaming is complete
         st.session_state.memory.save_context(
             {"input": user_input}, 
-            {"output": response.content}
+            {"output": full_response}
         )
         
-        return response.content
+        # Storing the complete response for display history
+        return full_response
         
     except Exception as e:
-        return f"Sorry, I encountered an error: {e}. Please try again!"
+        error_msg = f"Sorry, I encountered an error: {e}. Please try again!"
+        yield error_msg
+        return error_msg
 
 def on_click_callback():
     """Handle when user sends a message"""
     human_prompt = st.session_state.human_prompt
     
     if human_prompt.strip():  # Only process non-empty messages
-        # Add human message to history
+        # Adding human message to history
         st.session_state.history.append(
             Message(origin="human", message=human_prompt)
         )
         
-        # Get chatbot response
-        bot_response = get_chatbot_response(human_prompt)
+        # Adding placeholder for bot response (will be updated)
+
+        st.session_state.awaiting_response = True
+        st.session_state.current_user_input = human_prompt
+        # st.session_state.history.append(
+        #     Message(origin="assistant", message="")
+        # )
         
-        # Add bot response to history
-        st.session_state.history.append(
-            Message(origin="assistant", message=bot_response)
-        )
-        
-        # Clear the input box
-        st.session_state.human_prompt = ""
+        # # Triggering rerun to show the user message immediately
+        # st.rerun()
 
 def initialize_session_state():
     """Initialize session state variables"""
-    # Initialize chatbot FIRST
-    if "travel_agent" not in st.session_state:
-        st.session_state.travel_agent, st.session_state.memory = get_travel_agent()
-        st.session_state.system_prompt = get_system_prompt()
-    
-    # Then initialize chat history
     if "history" not in st.session_state:
         st.session_state.history = [
             Message(
                 origin="assistant", 
-                message="Hi! I'm Tripy, your personal travel planning assistant. Tell me where you'd like to go and I'll help plan your perfect trip!"
+                message="Hi! I'm TripBot, your personal travel planning assistant. Tell me where you'd like to go and I'll help plan your perfect trip!"
             )
         ]
+
+    if "awaiting_response" not in st.session_state:
+        st.session_state.awaiting_response = False
+    
+    if "current_user_input" not in st.session_state:
+        st.session_state.current_user_input = ""
+    
+    # Initializing chatbot
+    initialize_chatbot()
 
 def display_message(message: Message):
     """Display a single message with proper styling"""
@@ -92,65 +103,102 @@ def display_message(message: Message):
         with st.chat_message("assistant"):
             st.write(message.message)
 
-
 def main():
     st.set_page_config(
         page_title="Tripy - Smart Trip Planner",
         page_icon=":airplane:",
-        layout="wide"
+        # layout="wide"
     )
     
     initialize_session_state()
     
-    st.title("Welcome to Tripy")
+    # Title and header with custom styling
+    st.markdown(
+        """
+        <h1 style='text-align: center; margin-bottom: 0.5rem;'>🌏  Welcome to Tripy</h1>
+        """,
+        unsafe_allow_html=True
+    )
     
     # Chat container
     chat_placeholder = st.container()
     
-    # Display chat history
+    # Displaying chat history
     with chat_placeholder:
         for message in st.session_state.history:
-            display_message(message)
+            if message.origin == "human":
+                with st.chat_message("user"):
+                    st.write(message.message)
+            else:
+                with st.chat_message("assistant"):
+                    st.write(message.message)
+                
+        if st.session_state.awaiting_response:    
+            with st.chat_message("assistant"):
+                    response_placeholder = st.empty()
+                    full_response = ""
+                    
+                    for chunk in get_chatbot_response_stream(st.session_state.current_user_input):
+                        full_response += chunk
+                        response_placeholder.write(full_response + "▌")  # Cursor effect
+                    
+                    response_placeholder.markdown(full_response)
 
+                    st.session_state.history.append(
+                        Message(origin="assistant", message=full_response)
+                    )
 
+                    st.session_state.awaiting_response = False
+                    st.session_state.current_user_input = ""
+
+                    st.rerun()  # Rerun to update chat history
+
+    # Custom CSS for styling
+    st.markdown("""
+        <style>
+            .stForm {
+                position: relative;
+            }
+            
+            .stForm > div:last-child {
+                display: flex;
+                justify-content: flex-end;
+                margin-top: 0.2rem;
+            }
+            
+            .stForm button {
+                border-radius: 20px;
+                padding: 0.5rem 1.5rem;
+                font-weight: 600;
+            }
+            
+            /* Make text area container relative for positioning */
+            .stTextArea {
+                margin-bottom: 0.2rem;
+            }
+        </style>
+        """, unsafe_allow_html=True)
+    
+    # Input form.
     with st.form("prompt_form", clear_on_submit=True):
-        cols = st.columns([6, 1])
-        
-        # Use text_area instead of text_input for multiline support
-        user_input = cols[0].text_area(
+        user_input = st.text_area(
             "Ask me anything about your trip...", 
-            placeholder="e.g., Plan a 4-day trip to Paris for $2000",
+            placeholder="e.g., Plan a 4-day trip to Paris for €2000",
             label_visibility="collapsed", 
             key="human_prompt",
             height=70,
-            help="💡 Tip: Use Shift+Enter for new lines, Ctrl+Enter to send"
+            help="Tip: Use Shift+Enter for new lines, Ctrl+Enter to send"
         )
-        
-        # Submit button
-        submitted = cols[1].form_submit_button(
-            "Send", 
-            type="primary"
-        )
-        
-        # Handle submission
-        if submitted and user_input.strip():
-            # Adding user message to history
-            st.session_state.history.append(
-                Message(origin="human", message=user_input.strip())
-            )
-            
-            # Get chatbot response
-            bot_response = get_chatbot_response(user_input.strip())
-            
-            # Addding chatbot response to history
-            st.session_state.history.append(
-                Message(origin="assistant", message=bot_response)
-            )
-            
-            # Rerun to clear the form and show new messages
-            st.rerun()
-           
     
+        # Create columns for button positioning
+        col1, col2, col3 = st.columns([3, 1, 1])
+        with col3:
+            submitted = st.form_submit_button(
+                "Send ➤", 
+                type="primary",
+                on_click=on_click_callback
+            )
+
     # Sidebar with app info
     with st.sidebar:
         st.markdown("### 🔥Features")
