@@ -9,9 +9,11 @@ from langchain.chat_models.base import init_chat_model
 from langchain.agents import create_tool_calling_agent, AgentExecutor
 from langchain_core.prompts import ChatPromptTemplate
 from weather_tool import create_weather_tool
+import datetime
 
 
 load_dotenv(dotenv_path="./config/.env")
+today = datetime.date.today().strftime("%B %d, %Y")
 
 def get_travel_agent():
     llm = init_chat_model(
@@ -47,7 +49,7 @@ def get_travel_agent():
         tools=tools,
         verbose=False,
         handle_parsing_errors=True,
-        max_iterations=3,
+        max_iterations=5,
     )
 
     # For Streamlit compatibility, a simple wrapper arount the agent for use in streamlit
@@ -56,6 +58,10 @@ def get_travel_agent():
             self.agent_executor = agent_executor
             self.llm = llm
             
+        # This takes a list of LangChain messages (like SystemMessage, HumanMessage, AIMessage).
+        # Extracts the latest human message as input.
+        # Collects the rest of the messages as chat history (excluding system ones).
+        # Calls the LangChain agent executor
         def invoke(self, messages):
             # Handling both message format and direct input
             if isinstance(messages, list):
@@ -67,7 +73,7 @@ def get_travel_agent():
                         if msg.__class__.__name__ == 'HumanMessage':
                             user_input = msg.content
                         elif msg.__class__.__name__ == 'SystemMessage':
-                            continue                    # Skiping system messages for history
+                            continue                                     # Skiping system messages for history
                         else:
                             chat_history.append(msg)
                 
@@ -112,7 +118,7 @@ def get_travel_agent():
 # This function defines the core personality and logic of the travel agent.
 # It instructs the agent to: 
 def get_system_prompt():
-    return """
+    return f"""
         You are a travel agent specializing in creating personalized trip itineraries.
 
         Your expertise includes:
@@ -125,7 +131,8 @@ def get_system_prompt():
         - While choosing the restaurants ask user about their preferences (e.g., vegetarian, vegan, local cuisine, etc.)
 
         IMPORTANT: When planning trips, always check the weather for the destination to provide weather-appropriate recommendations. 
-        Use the most accurate weather informations to give exact advice when users mention a destination.
+        Use the most accurate weather informations to give exact advice when users mention a destination and if there is no exact date provided calculate a date from the current day.
+        f"And remember todays date is {today}".
 
         When helping a user plan trips:
         1. Ask clarifying questions about destination, budget, dates, and preferences.
