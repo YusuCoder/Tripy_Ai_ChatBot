@@ -8,7 +8,7 @@ from langchain.memory import ConversationBufferMemory
 from langchain.chat_models.base import init_chat_model
 from langchain.agents import create_tool_calling_agent, AgentExecutor
 from langchain_core.prompts import ChatPromptTemplate
-from weather_tool import create_weather_tool
+from tools.weather_tool import create_weather_tool
 import datetime
 
 

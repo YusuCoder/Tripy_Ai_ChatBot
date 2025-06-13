@@ -66,6 +66,11 @@ def create_weather_tool():
 
 
 
+
+
+
+
+
 # import requests
 # import os
 # from typing import Optional, Type

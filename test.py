@@ -5,7 +5,7 @@ Test script to debug weather tool issues
 """
 import os
 from dotenv import load_dotenv
-from weather_tool import create_weather_tool
+from tools.weather_tool import create_weather_tool
 
 def test_environment():
     """Test environment variables"""
