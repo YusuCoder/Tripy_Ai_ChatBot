@@ -10,7 +10,7 @@ try:
     rows = cursor.fetchall()
     print("Rows in message_store:")
     for row in rows:
-        print(row[2])
+        print(row[2])  # Assuming the content is in the third column
 except Exception as e:
     print(f"Error fetching data: {e}")
 
