@@ -6,6 +6,9 @@ from dotenv import load_dotenv
 # Importing your chatbot functions
 from langchain_core.messages import HumanMessage, SystemMessage
 from streamlit_.message_types import Message
+from aws.i_recognition import detect_image
+import json
+
 from main import (
     create_new_chat_session, 
     delete_chat_session, 
@@ -19,11 +22,99 @@ from streamlit_.streamlit_utils import (
     on_click_callback,
     initialize_session_state,
     display_message,
-    switch_session
+    switch_session,
+    initialize_chatbot
 )
 
 # Loading environment variables
 load_dotenv(dotenv_path="./config/.env")
+
+
+def get_latest_image_labels():
+    return st.session_state.get("latest_image_labels", [])
+
+
+def handle_image_upload():
+    st.subheader("Upload an Image")
+
+def contains_image_reference(text):
+    """Detect if user is referring to a previously uploaded image"""
+    image_refs = [
+        "this place", "the image", "this photo", "the picture", "this location", 
+        "where is this", "what is this place", "this destination", "the location",
+        "about this", "tell me about", "information about", "details about",
+        "visit here", "go there", "travel to", "trip to", "plan for this",
+        "where was this taken", "what's this location", "recognize this"
+    ]
+    text = text.lower()
+    return any(ref in text for ref in image_refs)
+
+
+def handle_image_upload_and_save_context(uploaded_img, image_submitted):
+    """Handle image upload and save context to database"""
+    if image_submitted and uploaded_img:
+        image_bytes = uploaded_img.read()
+        labels = detect_image(image_bytes)
+        st.session_state.latest_image_labels = labels
+        
+        # Create detailed image context
+        label_names = [label['Name'] for label in labels[:5]]  # Top 5 labels
+        confidence_info = [f"{label['Name']} ({label['Confidence']:.1f}%)" for label in labels[:3]]
+        
+        # Create comprehensive image context message
+        image_context = f"""[IMAGE_UPLOADED: {uploaded_img.name}]
+        Detected elements: {', '.join(confidence_info)}
+        All detected: {', '.join(label_names)}
+        This image appears to show: {', '.join(label_names[:1])}"""
+
+        # Save image context to database via the agent
+        try:
+            # Initialize the agent if not already done
+            if "travel_agent" not in st.session_state:
+                initialize_chatbot()
+            
+            # Save the image context as a system message to maintain context
+            session_history = get_session_history(st.session_state.current_session_id)
+            session_history.add_user_message(f"[IMAGE_UPLOAD] {uploaded_img.name}")
+            session_history.add_ai_message(image_context)
+            
+            print(f"✅ Image context saved to database for session: {st.session_state.current_session_id[:8]}")
+            
+        except Exception as e:
+            print(f"⚠️ Warning: Could not save image context to database: {e}")
+
+        # Display the uploaded image
+        st.image(image_bytes, caption="Uploaded Image", use_container_width=True)
+        st.markdown("### Detected Labels")
+        for label in labels:
+            st.write(f"- **{label['Name']}**: {label['Confidence']:.1f}% confidence")
+
+        # Add to session state history for UI
+        import base64
+        image_b64 = base64.b64encode(image_bytes).decode()
+        
+        st.session_state.history.append(
+            Message(
+                origin="human", 
+                message=f"[IMAGE_UPLOAD] {uploaded_img.name}",
+                image_bytes=image_bytes,
+                image_labels=labels
+            )
+        )
+        
+        # Adding here assistant response with context
+        response_msg = f"I can see an image with: {', '.join(label_names[:5])}. I've analyzed the image and saved the context. You can now ask me about this location, plan trips based on what I see, or ask any travel-related questions about this place!"
+        
+        st.session_state.history.append(
+            Message(
+                origin="assistant", 
+                message=response_msg,
+                image_labels=labels
+            )
+        )
+
+        st.rerun()
+
 
 def render_input_form():
     with st.form("prompt_form", clear_on_submit=True):
@@ -36,13 +127,68 @@ def render_input_form():
             help="Tip: Use Shift+Enter for new lines, Ctrl+Enter to send"
         )
 
-        col1, col2, col3 = st.columns([3, 1, 1])
+        uploaded_img = st.file_uploader("Upload an image", type=("jpg", "jpeg", "png"), key="image_upload")
+
+        col1, col2, col3, = st.columns([3, 1, 1])
         with col3:
             submitted = st.form_submit_button(
                 "Send ➤",
                 type="primary",
                 on_click=on_click_callback
             )
+        with col2:
+            image_submitted = st.form_submit_button("Upload Image")
+        
+        # Handle regular text submission
+        if submitted and user_input.strip():
+            # Get the latest image labels if available
+            latest_labels = get_latest_image_labels()
+            
+            # Enhance user input with image context if available
+            enhanced_input = user_input.strip()
+            if latest_labels:
+                label_names = [label['Name'] for label in latest_labels]
+                enhanced_input = f"{user_input.strip()}\n\n[Context: User previously uploaded an image containing: {', '.join(label_names)}]"
+            
+            # Add user message to history (original message without context)
+            st.session_state.history.append(Message(origin="human", message=user_input.strip()))
+            
+            # Set the enhanced input for the chatbot
+            st.session_state.current_user_input = enhanced_input
+            st.session_state.awaiting_response = True
+            st.rerun()
+        
+        handle_image_upload_and_save_context(uploaded_img, image_submitted)
+
+
+def render_chat():
+    chat_placeholder = st.container()
+    with chat_placeholder:
+        for message in st.session_state.history:
+            with st.chat_message("user" if message.origin == "human" else "assistant"):
+                # Display image if present
+                if hasattr(message, 'image_bytes') and message.image_bytes:
+                    st.image(
+                        message.image_bytes, 
+                        caption="Uploaded Image" if message.origin == "human" else "Analyzed Image",
+                        use_container_width=True
+                    )    
+                # Display message text
+                if message.message:
+                    st.write(message.message)
+        
+        if st.session_state.awaiting_response:
+            with st.chat_message("assistant"):
+                response_placeholder = st.empty()
+                full_response = ""
+                for chunk in get_chatbot_response_stream(st.session_state.current_user_input):
+                    full_response += chunk
+                    response_placeholder.write(full_response + "▌")
+                response_placeholder.markdown(full_response)
+                st.session_state.history.append(Message(origin="assistant", message=full_response))
+                st.session_state.awaiting_response = False
+                st.session_state.current_user_input = ""
+                st.rerun()
 
 
 def inject_custom_css():
@@ -66,27 +212,6 @@ def inject_custom_css():
             }
         </style>
     """, unsafe_allow_html=True)
-
-
-def render_chat():
-    chat_placeholder = st.container()
-    with chat_placeholder:
-        for message in st.session_state.history:
-            with st.chat_message("user" if message.origin == "human" else "assistant"):
-                st.write(message.message)
-        
-        if st.session_state.awaiting_response:
-            with st.chat_message("assistant"):
-                response_placeholder = st.empty()
-                full_response = ""
-                for chunk in get_chatbot_response_stream(st.session_state.current_user_input):
-                    full_response += chunk
-                    response_placeholder.write(full_response + "▌")
-                response_placeholder.markdown(full_response)
-                st.session_state.history.append(Message(origin="assistant", message=full_response))
-                st.session_state.awaiting_response = False
-                st.session_state.current_user_input = ""
-                st.rerun()
 
 
 def render_header():

@@ -67,24 +67,44 @@ def invoke(self, messages):
                 return {"output": "No valid input provided."}      
           
 
-
 def stream(self, messages):
-    # For streaming, use the LLM directly with a simplified approach
+    """Enhanced streaming with better image context handling"""
     if isinstance(messages, list):
-        # Convert messages to a single prompt
         prompt_parts = []
+        has_image_context = False
+        
         for msg in messages:
             if hasattr(msg, 'content'):
                 if msg.__class__.__name__ == 'SystemMessage':
                     prompt_parts.append(f"System: {msg.content}")
                 elif msg.__class__.__name__ == 'HumanMessage':
-                    prompt_parts.append(f"Human: {msg.content}")
+                    # Check if this message contains image context
+                    if '[IMAGE_UPLOAD]' in msg.content or 'CONTEXT:' in msg.content:
+                        has_image_context = True
+                    
+                    # Handle image labels if present
+                    label_text = ""
+                    if hasattr(msg, 'image_labels') and msg.image_labels:
+                        label_names = [label['Name'] for label in msg.image_labels]
+                        label_text = f"(Image contained: {', '.join(label_names)})"
+                    
+                    content = msg.content or '[Image uploaded]'
+                    prompt_parts.append(f"Human: {content} {label_text}")
+                    
                 elif msg.__class__.__name__ == 'AIMessage':
+                    # Preserve image context in AI messages
+                    if '[IMAGE_UPLOADED:' in msg.content or 'Detected elements:' in msg.content:
+                        has_image_context = True
                     prompt_parts.append(f"Assistant: {msg.content}")
+        
+        # Add context reminder if image context exists
+        if has_image_context:
+            prompt_parts.append("Note: The conversation includes image context. When the user refers to 'this place', 'the image', or similar terms, they're referring to the previously uploaded image and its detected elements.")
+        
         full_prompt = "\n\n".join(prompt_parts)
         full_prompt += "\n\nAssistant: "
-        # Stream the response with callbacks
-        print(f"🔄 Streaming response...")
+        
+        print(f"🔄 Streaming response with image context: {has_image_context}")
         for chunk in self.llm.stream(full_prompt, config={"callbacks": self.callbacks}):
             if hasattr(chunk, 'content') and chunk.content:
                 yield chunk
@@ -93,3 +113,35 @@ def stream(self, messages):
         for chunk in self.llm.stream(str(messages), config={"callbacks": self.callbacks}):
             if hasattr(chunk, 'content') and chunk.content:
                 yield chunk
+
+
+# def stream(self, messages):
+#     # For streaming, use the LLM directly with a simplified approach
+#     if isinstance(messages, list):
+#         # Convert messages to a single prompt
+#         prompt_parts = []
+#         for msg in messages:
+#             if hasattr(msg, 'content'):
+#                 if msg.__class__.__name__ == 'SystemMessage':
+#                     prompt_parts.append(f"System: {msg.content}")
+#                 elif msg.__class__.__name__ == 'HumanMessage':
+#                     label_text = ""
+#                     if hasattr(msg, 'image_labels') and msg.image_labels:
+#                         label_names = [label['Name'] for label in msg.image_labels]
+#                         label_text = f"(Image contained: {', '.join(label_names)})"
+#                     prompt_parts.append(f"Human: {msg.content or '[Image uploaded]'} {label_text}")
+#                     # prompt_parts.append(f"Human: {msg.content}")
+#                 elif msg.__class__.__name__ == 'AIMessage':
+#                     prompt_parts.append(f"Assistant: {msg.content}")
+#         full_prompt = "\n\n".join(prompt_parts)
+#         full_prompt += "\n\nAssistant: "
+#         # Stream the response with callbacks
+#         print(f"🔄 Streaming response...")
+#         for chunk in self.llm.stream(full_prompt, config={"callbacks": self.callbacks}):
+#             if hasattr(chunk, 'content') and chunk.content:
+#                 yield chunk
+#     else:
+#         # Fallback for non-list input
+#         for chunk in self.llm.stream(str(messages), config={"callbacks": self.callbacks}):
+#             if hasattr(chunk, 'content') and chunk.content:
+#                 yield chunk
