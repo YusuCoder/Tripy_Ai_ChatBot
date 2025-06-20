@@ -5,8 +5,19 @@ from prompts.prompt import get_system_prompt
 from main import get_travel_agent, create_new_chat_session, get_chat_history_for_session, get_session_history, LANGFUSE_ENABLED
 from langchain_core.messages import HumanMessage, SystemMessage
 from streamlit_.message_types import Message
+# from flights.flight_details import  extract_travel_details_nlp
 
 load_dotenv(dotenv_path="./config/.env")
+
+# def get_flight_details_from_input(user_input):
+
+#     info = extract_travel_details_nlp(user_input)
+#     for key, value in info.items():
+#         if value and not st.session_state.get[key]:
+#             st.session_state[key] = value
+#     print("🧭 Travel Info Collected So Far:")
+#     print(info)
+
 
 def initialize_chatbot():
     """Initialize the travel agent and memory (only once per session)"""
@@ -37,6 +48,7 @@ def get_chatbot_response_stream(user_input: str):
         
         # Adding current user input
         messages.append(HumanMessage(content=user_input))
+        # get_flight_details_from_input(user_input)
 
         # Stream response from travel agent
         print(f"Starting streaming response...")

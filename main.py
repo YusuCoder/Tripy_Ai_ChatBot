@@ -6,7 +6,7 @@ from langchain_core.runnables.history import RunnableWithMessageHistory
 from langfuse.langchain import CallbackHandler
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from agent.agent_utils import invoke, stream
-from prompts.prompt import get_system_prompt
+from prompts.prompt import get_system_prompt, get_flight_system_prompt
 from tools.tools_main import tools_handler, import_weather_tool
 from db.db import (
     get_session_history,
@@ -39,6 +39,7 @@ def get_travel_agent(session_id: str = None):
         callbacks=callbacks, 
     )
 
+    
     # Weather tool creation
     tools = [create_weather_tool()]
 
