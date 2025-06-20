@@ -1,7 +1,11 @@
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, Optional, Dict, Any
+import base64
 
 @dataclass
 class Message:
-    origin: Literal["human", "assistant"]
-    message: str
+    def __init__(self, origin: str, message: str, image: dict = None):
+        self.origin = origin
+        self.message = message
+        self.image = image  
+        

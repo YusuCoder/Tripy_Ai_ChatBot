@@ -3,6 +3,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+google_keys.json
+
 # C extensions
 *.so
 

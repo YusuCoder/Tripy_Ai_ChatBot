@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 import os
 from google.cloud import vision
-load_dotenv()
+load_dotenv(dotenv_path="../config/.env")
 
 client = vision.ImageAnnotatorClient()
 
