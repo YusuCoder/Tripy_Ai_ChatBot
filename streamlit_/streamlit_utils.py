@@ -31,7 +31,7 @@ def initialize_chatbot():
         st.session_state.agent_session_id = st.session_state.current_session_id
 
 def get_chatbot_response_stream(user_input: str):
-    """Get streaming response from your travel chatbot with Langfuse tracing"""
+    """Simplified version - disable problematic Langfuse invoke"""
     try:
         print(f"Processing user input: {user_input[:50]}...")
         
@@ -48,8 +48,7 @@ def get_chatbot_response_stream(user_input: str):
         
         # Adding current user input
         messages.append(HumanMessage(content=user_input))
-        # get_flight_details_from_input(user_input)
-
+        
         # Stream response from travel agent
         print(f"Starting streaming response...")
         full_response = ""
@@ -60,36 +59,87 @@ def get_chatbot_response_stream(user_input: str):
         
         print(f"Streaming completed. Response length: {len(full_response)} chars")
         
+        # Save to session history
         try:
-            print(f"Saving conversation to database...")
-            # The invoke method will handle saving to the database automatically
-            response = st.session_state.travel_agent.invoke([HumanMessage(content=user_input)])
-            print(f"Conversation saved successfully for session: {st.session_state.current_session_id[:8]}...")
-            
-            # Log to Langfuse if enabled
-            if LANGFUSE_ENABLED:
-                print(f"Langfuse tracing is enabled - traces should appear in dashboard")
-            else:
-                print(f"Langfuse tracing is disabled")
-                
+            session_history = get_session_history(st.session_state.current_session_id)
+            session_history.add_user_message(user_input)
+            session_history.add_ai_message(full_response)
+            print("Chat history saved successfully")
         except Exception as save_error:
-            print(f"Warning: Could not save conversation: {save_error}")
-            # Try alternative approach - directly save to session history
-            try:
-                session_history = get_session_history(st.session_state.current_session_id)
-                session_history.add_user_message(user_input)
-                session_history.add_ai_message(full_response)
-                print("Alternative chat save method successful")
-            except Exception as alt_save_error:
-                print(f"❌ Alternative chat save method failed: {alt_save_error}")
+            print(f"❌ Could not save chat history: {save_error}")
+        
+        # SIMPLIFIED: Skip the problematic Langfuse invoke
+        # Your streaming already includes Langfuse tracing if configured properly
+        if LANGFUSE_ENABLED:
+            print("ℹ️  Langfuse tracing via streaming (invoke disabled due to compatibility issues)")
         
         return full_response
         
     except Exception as e:
         error_msg = f"Sorry, I encountered an error: {e}. Please try again!"
-        print(f"❌ Error in get_chatbot_response_stream: {e}")
+        print(f"❌ Error in get_chatbot_response_stream_simple: {e}")
         yield error_msg
         return error_msg
+
+
+# def get_chatbot_response_stream(user_input: str):
+#     """Get streaming response from your travel chatbot with Langfuse tracing"""
+#     try:
+#         print(f"Processing user input: {user_input[:50]}...")
+        
+#         # Creating messages with system prompt and chat history
+#         messages = [SystemMessage(content=st.session_state.system_prompt)]
+        
+#         # Adding chat history from database if available
+#         try:
+#             session_history = get_session_history(st.session_state.current_session_id)
+#             if hasattr(session_history, 'messages'):
+#                 messages.extend(session_history.messages)
+#         except Exception as history_error:
+#             print(f"Warning: Could not load chat history: {history_error}")
+        
+#         # Adding current user input
+#         messages.append(HumanMessage(content=user_input))
+#         # get_flight_details_from_input(user_input)
+
+#         # Stream response from travel agent
+#         print(f"Starting streaming response...")
+#         full_response = ""
+#         for chunk in st.session_state.travel_agent.stream(messages):
+#             if hasattr(chunk, 'content') and chunk.content:
+#                 full_response += chunk.content
+#                 yield chunk.content
+        
+#         print(f"Streaming completed. Response length: {len(full_response)} chars")
+        
+#         try:
+#             print(f"Saving conversation to database...")
+#             response = st.session_state.travel_agent.invoke([HumanMessage(content=user_input)])
+#             print(f"Conversation saved successfully for session: {st.session_state.current_session_id[:8]}...")
+            
+#             # Log to Langfuse if enabled or disabled
+#             if LANGFUSE_ENABLED:
+#                 print(f"Langfuse tracing is enabled - traces should appear in dashboard")
+#             else:
+#                 print(f"Langfuse tracing is disabled")
+                
+#         except Exception as save_error:
+#             print(f"Warning: Could not save conversation: {save_error}")
+#             try:
+#                 session_history = get_session_history(st.session_state.current_session_id)
+#                 session_history.add_user_message(user_input)
+#                 session_history.add_ai_message(full_response)
+#                 print("Alternative chat save method successful")
+#             except Exception as alt_save_error:
+#                 print(f"❌ Alternative chat save method failed: {alt_save_error}")
+        
+#         return full_response
+        
+#     except Exception as e:
+#         error_msg = f"Sorry, I encountered an error: {e}. Please try again!"
+#         print(f"❌ Error in get_chatbot_response_stream: {e}")
+#         yield error_msg
+#         return error_msg
 
 def on_click_callback():
     """Handle when user sends a message (original callback for backward compatibility)"""

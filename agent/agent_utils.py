@@ -5,8 +5,6 @@ load_dotenv(dotenv_path="./config/.env")
 
 def invoke(self, messages):
     if self.session_id and self.agent_with_history:
-        # Handling both message format and direct input
-        # Extracting the last user message
         user_input = ""
         if isinstance(messages, list) and len(messages) > 0:
             for msg in messages:

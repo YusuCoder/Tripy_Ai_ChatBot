@@ -96,7 +96,7 @@ def create_vision_prompt(vision_data, user_text=""):
         if vision_data['text']:
             prompt_parts.append(f"Text in image: {vision_data['text']}")
         
-        prompt_parts.append("Please provide detailed information about this place, including travel tips, best times to visit, nearby attractions, and any other relevant travel advice.")
+        prompt_parts.append("Please provide detailed information about this place, where is this place located, if not exact one landmark provided, give the information about the street, including travel tips, best times to visit, nearby attractions, and any other relevant travel advice.")
     else:
         prompt_parts.append("I uploaded an image but there was an issue processing it. Please help me with my travel question.")
     

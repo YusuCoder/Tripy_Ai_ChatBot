@@ -18,8 +18,8 @@ from db.db import (
 
 
 load_dotenv(dotenv_path="./config/.env")
-# Setting up Langfuse tracer for monitoring
 
+# Setting up Langfuse tracer for monitoring
 langfuse_handler, LANGFUSE_ENABLED = tools_handler()
 
 def create_weather_tool():
@@ -90,4 +90,4 @@ def get_travel_agent(session_id: str = None):
 
     # Updated to pass session_id to StreamableAgent
     streamable_agent = StreamableAgent(agent_executor, llm, session_id)
-    return streamable_agent, None  #None is for memory, because i use SqlChatMessageHistory for session history
+    return streamable_agent, None 

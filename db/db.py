@@ -55,7 +55,7 @@ def get_chat_history_for_session(session_id: str):
             if hasattr(message, 'content'):
                 msg_type = "human" if message.__class__.__name__ == 'HumanMessage' else "assistant"
                 messages.append({
-                    "origin": msg_type,  # Changed from "type" to "origin" to match streamlit_app.py
+                    "origin": msg_type, 
                     "content": message.content
                 })
         return messages
