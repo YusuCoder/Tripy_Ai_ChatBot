@@ -10,3 +10,10 @@ colorama==0.4.6
 
 rich==13.7.0
 requests==2.31.0
+
+langgraph>=0.2.0
+langchain-core>=0.3.0
+typing-extensions>=4.8.0
+
+# Install command:
+# pip install langgraph typing-extensions

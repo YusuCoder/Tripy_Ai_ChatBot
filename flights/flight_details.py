@@ -5,7 +5,7 @@ from openai import OpenAI
 from amadeus import Client, ResponseError, Location
 from dotenv import load_dotenv
 from datetime import datetime
-from airports import Airports
+from flights.airports import Airports
 load_dotenv(dotenv_path="../config/.env")
 # ----------------------------
 # 1. Schema for GPT function
@@ -150,7 +150,7 @@ if __name__ == "__main__":
     destination = a.search_cities(args['destination'])
 
     o_iata = origin[0]['iata']
-    d_iata = destination[0]['iata']
+    d_iata = destination[2]['iata']
 
     print(f"Searching flights from {o_iata} to {d_iata}...") 
 

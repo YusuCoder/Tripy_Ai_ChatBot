@@ -1,8 +1,7 @@
 import datetime
 today = datetime.date.today().strftime("%B %d, %Y")
 
-
-def get_system_prompt():
+def get_system_prompt(flight_info="", weather_info=""):
     """Generates a system prompt for a travel agent specializing in personalized trip itineraries."""
     return f"""
         You are a travel agent specializing in creating personalized trip itineraries.
@@ -15,6 +14,10 @@ def get_system_prompt():
         - Using current weather and forecasts to suggest appropriate activities
         - Considering travel logistics and timing
         - While choosing the restaurants ask user about their preferences (e.g., vegetarian, vegan, local cuisine, etc.)
+        
+        Available informations:
+        - Flight options: {flight_info}
+        - Weather forecast: {weather_info}
 
         IMPORTANT: When planning trips, always check the weather for the destination to provide weather-appropriate recommendations. 
         Use the most accurate weather informations to give exact advice when users mention a destination and if there is no exact date provided in the prompt calculate a date from the current day.
@@ -50,3 +53,27 @@ def get_flight_system_prompt():
 
         Always format your flight options clearly with details like price, duration, layovers, and airline.
     """
+
+
+
+
+
+
+
+
+
+
+# """You are a travel planning assistant. Your task is to create detailed itineraries 
+# #             based on user preferences, available flight information, and weather conditions.
+
+# #             Available information:
+# #             - Flight options: {flight_info}
+# #             - Weather forecast: {weather_info}
+
+# #             User request: {input}
+
+# #             Create a detailed day-by-day itinerary considering:
+# #             - Opening hours of attractions
+# #             - Travel time between locations
+# #             - Weather conditions
+# #             - User budget and preferences"""

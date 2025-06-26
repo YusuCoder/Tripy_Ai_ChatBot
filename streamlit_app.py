@@ -235,18 +235,19 @@ def on_click_callback_with_image(uploaded_file=None):
         print(f"Combined prompt: {combined_prompt[:100]}...")
         
         # Add message to history with image if present
-        message_content = human_prompt if human_prompt.strip() else "Uploaded an image for analysis"
-        st.session_state.history.append(
-            Message(
-                origin="human", 
-                message=message_content,
-                image=st.session_state.current_image if uploaded_file else None
-            )
-        )
+        # message_content = human_prompt if human_prompt.strip() else "Uploaded an image for analysis"
+        # st.session_state.history.append(
+        #     Message(
+        #         origin="human", 
+        #         message=message_content,
+        #         image=st.session_state.current_image if uploaded_file else None
+        #     )
+        # )
         
         # Seting flag to generate response
         st.session_state.awaiting_response = True
         st.session_state.current_user_input = combined_prompt
+        st.session_state.current_user_display_message = human_prompt if human_prompt.strip() else "Uploaded an image for analysis"
 
 def inject_custom_css():
     st.markdown("""
@@ -335,8 +336,24 @@ def render_chat():
                         width=300
                     )
                 st.write(message.message)
-        
+
         if st.session_state.awaiting_response:
+            user_message = st.session_state.get('current_user_display_message', st.session_state.current_user_input)
+            user_image = st.session_state.current_image
+
+            with st.chat_message("user"):
+                if user_image:
+                    st.image(
+                        user_image['data'],
+                        caption=f"📷 {user_image['name']}",
+                        width=300
+                    )
+                st.write(user_message)
+            
+            st.session_state.history.append(
+                Message(origin="human", message=user_message, image=user_image)
+            )
+            
             with st.chat_message("assistant"):
                 response_placeholder = st.empty()
                 full_response = ""
@@ -344,6 +361,7 @@ def render_chat():
                     full_response += chunk
                     response_placeholder.write(full_response + "▌")
                 response_placeholder.markdown(full_response)
+
                 st.session_state.history.append(Message(origin="assistant", message=full_response))
                 st.session_state.awaiting_response = False
                 st.session_state.current_user_input = ""
@@ -397,6 +415,9 @@ def display_chat_session_entry(session, index):
         is_current = session == st.session_state.current_session_id
         if st.button(display_name, key=f"chat_{session}", use_container_width=True, type="primary" if is_current else "secondary"):
             if not is_current:
+                # Clear any pending responses before switching
+                st.session_state.awaiting_response = False
+                st.session_state.current_user_input = ""
                 switch_session(session)
                 st.rerun()
     with col2:
@@ -404,6 +425,9 @@ def display_chat_session_entry(session, index):
             if delete_chat_session(session):
                 if st.session_state.current_session_id == session:
                     new_session = create_new_chat_session()
+                    # Clear state before switching to new session
+                    st.session_state.awaiting_response = False
+                    st.session_state.current_user_input = ""
                     switch_session(new_session)
                 st.rerun()
 
