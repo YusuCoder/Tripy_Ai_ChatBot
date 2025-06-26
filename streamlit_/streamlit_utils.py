@@ -60,19 +60,28 @@ def get_chatbot_response_stream(user_input: str):
                     yield stream_event.content # Yielding just the content for display
         print(f"Streaming completed. Response length: {len(full_response)} chars")
         
-        # Save to session history
-        # try:
-        #     session_history = get_session_history(st.session_state.current_session_id)
-        #     session_history.add_user_message(user_input)
-        #     session_history.add_ai_message(full_response)
-        #     print("Chat history saved successfully")
-        # except Exception as save_error:
-        #     print(f"❌ Could not save chat history: {save_error}")
-        
-        # SIMPLIFIED: Skip the problematic Langfuse invoke
-        # Your streaming already includes Langfuse tracing if configured properly
-        if LANGFUSE_ENABLED:
-            print("ℹ️  Langfuse tracing via streaming (invoke disabled due to compatibility issues)")
+        try:
+            print(f"Saving conversation to database...")
+            # The invoke method will handle saving to the database automatically
+            response = st.session_state.travel_agent.invoke([HumanMessage(content=user_input)])
+            print(f"Conversation saved successfully for session: {st.session_state.current_session_id[:8]}...")
+            
+            # Log to Langfuse if enabled
+            if LANGFUSE_ENABLED:
+                print(f"Langfuse tracing is enabled - traces should appear in dashboard")
+            else:
+                print(f"Langfuse tracing is disabled")
+                
+        except Exception as save_error:
+            print(f"Warning: Could not save conversation: {save_error}")
+            # Try alternative approach - directly save to session history
+            try:
+                session_history = get_session_history(st.session_state.current_session_id)
+                session_history.add_user_message(user_input)
+                session_history.add_ai_message(full_response)
+                print("Alternative chat save method successful")
+            except Exception as alt_save_error:
+                print(f"❌ Alternative chat save method failed: {alt_save_error}")
         
         return full_response
         
