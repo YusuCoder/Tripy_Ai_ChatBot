@@ -139,7 +139,7 @@ def duration_in_minutes(duration_str):
 # 6. Example usage
 # --------------------------------------
 if __name__ == "__main__":
-    user_input = "I need a flight from Tashkent to Istanbul on July 20, return July 30, prefer cheapest."
+    user_input = "I need a flight from Stuttgart to Istanbul on July 20, return July 30, prefer cheapest."
 
     a = Airports()
     a.load_airports("../data/airports.dat")
@@ -150,7 +150,7 @@ if __name__ == "__main__":
     destination = a.search_cities(args['destination'])
 
     o_iata = origin[0]['iata']
-    d_iata = destination[0]['iata']
+    d_iata = destination[2]['iata']
 
     print(f"Searching flights from {o_iata} to {d_iata}...") 
 
@@ -177,13 +177,13 @@ if __name__ == "__main__":
             print(f"  ✈️ {flight_type} Flight:")
 
             for segment in itinerary['segments']:
-                departure = segment['departure']['at']  # e.g., "2024-07-20T08:00:00"
+                departure = segment['departure']['at'] 
                 arrival = segment['arrival']['at']
-                airline = segment['carrierCode']  # e.g., "AA" (American Airlines)
+                airline = segment['carrierCode'] 
                 dep_airport = segment['departure']['iataCode']
                 arr_airport = segment['arrival']['iataCode']
 
-                # Format time (e.g., "08:00" instead of full ISO timestamp)
+                # Format times
                 dep_time = departure.split('T')[1][:5]
                 arr_time = arrival.split('T')[1][:5]
 

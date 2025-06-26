@@ -1,5 +1,17 @@
 import datetime
-today = datetime.date.today().strftime("%B %d, %Y")
+
+def get_next_weekday(target_weekday: int) -> datetime.date:
+    """
+    Returns the date of the next occurrence of the given weekday (0=Monday, 6=Sunday)
+    after today + 7 days (i.e., 'next' week)
+    """
+    today = datetime.date.today()
+    days_ahead = 7 + (target_weekday - today.weekday()) % 7
+    return today + datetime.timedelta(days=days_ahead)
+
+today = datetime.date.today()
+today_str = datetime.date.today().strftime("%A, %B %d, %Y")
+
 
 
 def get_system_prompt():
@@ -18,7 +30,7 @@ def get_system_prompt():
 
         IMPORTANT: When planning trips, always check the weather for the destination to provide weather-appropriate recommendations. 
         Use the most accurate weather informations to give exact advice when users mention a destination and if there is no exact date provided in the prompt calculate a date from the current day.
-        And remember today's date is {today}.
+        Today's date is {today_str}. That means if a user says "next Monday", it refers to Monday, {get_next_weekday(0).strftime("%B %d, %Y")}.
 
         IMPORTANT: When helping a user plan trips:
         1. Always ask clarifying questions about destination, budget, dates, and preferences, and questions should be bullet pointed.

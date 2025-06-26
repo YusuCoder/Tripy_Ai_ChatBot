@@ -11,6 +11,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from streamlit_.message_types import Message
 from google.cloud import vision
 import base64
+import time
 from main import (
     create_new_chat_session, 
     delete_chat_session, 
@@ -334,21 +335,72 @@ def render_chat():
                         caption=f"📷 {message.image['name']}", 
                         width=300
                     )
-                st.write(message.message)
+                st.markdown(message.message)
         
         if st.session_state.awaiting_response:
             with st.chat_message("assistant"):
                 response_placeholder = st.empty()
                 full_response = ""
+                buffer = ""
+                last_update = time.time()
+                
                 for chunk in get_chatbot_response_stream(st.session_state.current_user_input):
-                    full_response += chunk
-                    response_placeholder.write(full_response + "▌")
+                    buffer += chunk
+                    current_time = time.time()
+                    
+                    # Update every 80ms or when we hit word boundaries
+                    should_update = (
+                        current_time - last_update >= 0.1 or 
+                        chunk.endswith((' ', '\n', '.', '!', '?', ',')) or
+                        len(buffer) >= 15
+                    )
+                    
+                    if should_update:
+                        full_response += buffer
+                        response_placeholder.markdown(full_response + " ●")
+                        buffer = ""
+                        last_update = current_time
+                        time.sleep(0.02)  # Small pause for smoothness
+                
+                # Handle any remaining buffer
+                if buffer:
+                    full_response += buffer
+                
+                # Final clean update
                 response_placeholder.markdown(full_response)
                 st.session_state.history.append(Message(origin="assistant", message=full_response))
                 st.session_state.awaiting_response = False
                 st.session_state.current_user_input = ""
                 st.session_state.current_image = None 
                 st.rerun()
+
+
+# def render_chat():
+#     chat_placeholder = st.container()
+#     with chat_placeholder:
+#         for message in st.session_state.history:
+#             with st.chat_message("user" if message.origin == "human" else "assistant"):
+#                 if hasattr(message, 'image') and message.image:
+#                     st.image(
+#                         message.image['data'], 
+#                         caption=f"📷 {message.image['name']}", 
+#                         width=300
+#                     )
+#                 st.write(message.message)
+        
+#         if st.session_state.awaiting_response:
+#             with st.chat_message("assistant"):
+#                 response_placeholder = st.empty()
+#                 full_response = ""
+#                 for chunk in get_chatbot_response_stream(st.session_state.current_user_input):
+#                     full_response += chunk
+#                     response_placeholder.write(full_response + "▌")
+#                 response_placeholder.markdown(full_response)
+#                 st.session_state.history.append(Message(origin="assistant", message=full_response))
+#                 st.session_state.awaiting_response = False
+#                 st.session_state.current_user_input = ""
+#                 st.session_state.current_image = None 
+#                 st.rerun()
 
 def render_header():
     st.markdown("<h1 style='text-align: center; margin-bottom: 0.5rem;'>🌏 Welcome to Tripy</h1>", unsafe_allow_html=True)

@@ -2,6 +2,7 @@ import os
 from langchain_community.chat_message_histories import SQLChatMessageHistory
 from langchain_core.runnables.history import RunnableWithMessageHistory
 import uuid
+import sqlite3
 
 
 def get_session_history(session_id: str) -> SQLChatMessageHistory:
@@ -16,7 +17,6 @@ def create_new_chat_session():
 
 def get_all_chat_sessions():
     """Get all existing chat sessions IDs"""
-    import sqlite3
     try:
         conn = sqlite3.connect("travel_chats.db")
         cursor = conn.cursor()
