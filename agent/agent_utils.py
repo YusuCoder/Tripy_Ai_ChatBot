@@ -4,40 +4,55 @@ from dotenv import load_dotenv
 load_dotenv(dotenv_path="./config/.env")
 
 def invoke(self, messages):
-    if self.session_id and self.agent_with_history:
-        # Handling both message format and direct input
-        # Extracting the last user message
-        user_input = ""
-        if isinstance(messages, list) and len(messages) > 0:
-            for msg in messages:
-                if hasattr(msg, 'content') and msg.__class__.__name__ == 'HumanMessage':
+    # Extract user input and system message from messages
+    user_input = ""
+    system_prompt = ""
+    
+    if isinstance(messages, list) and len(messages) > 0:
+        for msg in messages:
+            if hasattr(msg, 'content'):
+                if msg.__class__.__name__ == 'HumanMessage':
                     user_input = msg.content
-                    break
-        elif isinstance(messages, str):
-            user_input = messages
-        else:
-            user_input = str(messages)
-        
-        if user_input:
-            # Create run config with session_id and callbacks
-            run_config = {
-                "configurable": {"session_id": self.session_id},
-                "callbacks": self.callbacks
-            }
-            
-            print(f"🔄 Invoking agent with session: {self.session_id[:8]}...")
-            result = self.agent_with_history.invoke(
-                {"input": user_input},
-                config=run_config,
-            )
-            print(f"✅ Agent invocation completed")
-            return result
-        else:
-            return {"output": "No valid input provided."}
+                elif msg.__class__.__name__ == 'SystemMessage':
+                    system_prompt = msg.content
+    elif isinstance(messages, str):
+        user_input = messages
     else:
-        # If no session_id is provided, using original existing buffer memory
-        if isinstance(messages, list) and len(messages) > 0:
-            user_input = ""
+        user_input = str(messages)
+    
+    if not user_input:
+        return {"output": "No valid input provided."}
+    
+    # Combine system prompt with user input for better context
+    if system_prompt:
+        enhanced_input = f"SYSTEM INSTRUCTIONS: {system_prompt}\n\nUSER REQUEST: {user_input}"
+    else:
+        enhanced_input = user_input
+    
+    # Use the agent_executor with enhanced context
+    try:
+        print(f"🔄 Invoking agent with travel planning context...")
+        result = self.agent_executor.invoke({
+            "input": enhanced_input,
+            "chat_history": []
+        })
+        print(f"✅ Agent invocation completed")
+        return result
+    except Exception as e:
+        print(f"❌ Direct agent error: {e}")
+        # Fallback: try with just user input
+        try:
+            result = self.agent_executor.invoke({"input": user_input})
+            return result
+        except Exception as e2:
+            print(f"❌ Fallback agent error: {e2}")
+            # Last resort: try with the user input directly
+            try:
+                result = self.agent_executor.invoke(user_input)
+                return result
+            except Exception as e3:
+                print(f"❌ Final fallback error: {e3}")
+                return {"output": f"Sorry, I encountered an error: {str(e3)}"}
             chat_history = []
             for msg in messages:
                 if hasattr(msg, 'content'):

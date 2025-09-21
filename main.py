@@ -1,7 +1,7 @@
 import os 
 from dotenv import load_dotenv
-from langchain.chat_models.base import init_chat_model
-from langchain.agents import create_tool_calling_agent, AgentExecutor
+from langchain_openai import ChatOpenAI
+from langchain.agents import AgentExecutor, initialize_agent, AgentType
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langfuse.langchain import CallbackHandler
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -16,8 +16,8 @@ from db.db import (
     get_chat_history_for_session
 )
 
-
-load_dotenv(dotenv_path="./config/.env")
+# Load environment variables from .env file
+load_dotenv()
 # Setting up Langfuse tracer for monitoring
 
 langfuse_handler, LANGFUSE_ENABLED = tools_handler()
@@ -25,41 +25,73 @@ langfuse_handler, LANGFUSE_ENABLED = tools_handler()
 def create_weather_tool():
     return import_weather_tool()
 
+def create_travel_planning_tool():
+    """Import and create the travel planning tool"""
+    try:
+        from tools.travel_planning_tool_new import create_travel_planning_tool
+        return create_travel_planning_tool()
+    except ImportError:
+        print("Warning: Could not import travel_planning_tool_new")
+        return None
+
 
 def get_travel_agent(session_id: str = None):
     callbacks = [langfuse_handler] if LANGFUSE_ENABLED else []
     """Get a travel agent with optional session ID for chat history"""
-    llm = init_chat_model(
-        model="openai:gpt-4o-mini",
-        base_url="https://openrouter.ai/api/v1",
-        api_key=os.getenv("API_KEY"),
-        temperature=0.7,
-        max_tokens=2000,
-        frequency_penalty=0.5,
-        callbacks=callbacks, 
-    )
+    
+    # Get API key from environment
+    api_key = os.getenv("API_KEY") or os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise ValueError("No API key found. Please set API_KEY or OPENAI_API_KEY in your .env file")
+    
+    print(f"Using API key: {api_key[:10]}..." if api_key else "No API key found")
+    print(f"API key starts with: {api_key[:10] if api_key else 'None'}")
+    print(f"Is OpenRouter key: {api_key.startswith('sk-or-') if api_key else False}")
+    
+    # Configure LLM based on API key type
+    if api_key.startswith("sk-or-"):
+        # OpenRouter configuration
+        llm = ChatOpenAI(
+            model="gpt-3.5-turbo",  # Use a model that's available on OpenRouter
+            openai_api_base="https://openrouter.ai/api/v1",
+            openai_api_key=api_key,
+            temperature=0.7,
+            max_tokens=2000,
+            frequency_penalty=0.5,
+            callbacks=callbacks, 
+        )
+        print("🔗 Using OpenRouter API")
+    else:
+        # Direct OpenAI configuration
+        llm = ChatOpenAI(
+            model="gpt-4o-mini",
+            openai_api_key=api_key,
+            temperature=0.7,
+            max_tokens=2000,
+            frequency_penalty=0.5,
+            callbacks=callbacks, 
+        )
+        print("🔗 Using Direct OpenAI API")
 
-    # Weather tool creation
+    # Create tools
     tools = [create_weather_tool()]
+    
+    # Add travel planning tool
+    travel_tool = create_travel_planning_tool()
+    if travel_tool:
+        tools.append(travel_tool)
 
-    # Defining a chat prompt template for the agent for how the LLM should behave 
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", get_system_prompt()),
-        MessagesPlaceholder(variable_name="chat_history"),
-        ("human", "{input}"),
-        MessagesPlaceholder(variable_name="agent_scratchpad"),
-    ])
-
-    # Constructing a tool-using agent that can dynamically call the weather tool based on input
-    agent = create_tool_calling_agent(llm, tools, prompt)
-    # Setting up the agent executor with the defined agent and tools, handling parsing errors, and limiting iterations
-    agent_executor = AgentExecutor(
-        agent=agent,
+    # Create agent using the older langchain API
+    agent_executor = initialize_agent(
         tools=tools,
-        verbose=False,
+        llm=llm,
+        agent=AgentType.CHAT_CONVERSATIONAL_REACT_DESCRIPTION,
+        verbose=True,  # Enable verbose for debugging
         handle_parsing_errors=True,
-        max_iterations=5,
+        max_iterations=20,  # Increased for complex travel planning workflow
+        early_stopping_method="force",  # Changed to force to ensure both tools are used
         callbacks=callbacks,
+        return_intermediate_steps=True,  # Enable intermediate steps capture
     )
 
     # For Streamlit compatibility, a simple wrapper around the agent for use in streamlit

@@ -1,20 +1,24 @@
 import os
+import json
 from typing import Optional, Type
 from langchain.tools import BaseTool
 from langchain_community.utilities import OpenWeatherMapAPIWrapper
 from pydantic import BaseModel, Field
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 class WeatherInput(BaseModel):
-    city: str = Field(description="City name to get the weather for")
-    country_code: Optional[str] = Field(default=None, description="2-letter country code (optional)")
+    query: str = Field(description="City name to get weather for. Can include country code like 'Paris,FR' or just 'London'")
 
 class WeatherTool(BaseTool):
     name: str = "get_weather"
     description: str = """Get current weather information for travel planning.
-    Input should be a city name, optionally with a country code."""
+    Input should be a city name, optionally with a country code (e.g., 'Paris,FR' or just 'London')."""
     args_schema: Type[BaseModel] = WeatherInput
 
-    def _run(self, city: str, country_code: Optional[str] = None) -> str:
+    def _run(self, query: str) -> str:
         try:
             # Check if API key is set
             api_key = os.getenv("OPENWEATHERMAP_API_KEY")
@@ -23,9 +27,6 @@ class WeatherTool(BaseTool):
             
             # Initialize the wrapper with explicit API key
             weather = OpenWeatherMapAPIWrapper(openweathermap_api_key=api_key)
-            
-            # Build query
-            query = f"{city},{country_code}" if country_code else city
             
             print(f"Fetching weather for: {query}")  # Debug
             

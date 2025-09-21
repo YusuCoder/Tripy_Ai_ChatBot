@@ -9,7 +9,15 @@ from PIL import Image
 # Importing your chatbot functions
 from langchain_core.messages import HumanMessage, SystemMessage
 from streamlit_.message_types import Message
-from google.cloud import vision
+
+# Try to import Google Vision API, make it optional
+try:
+    from google.cloud import vision
+    VISION_ENABLED = True
+except ImportError:
+    VISION_ENABLED = False
+    print("⚠️ Google Vision API not available - image features disabled")
+
 import base64
 from main import (
     create_new_chat_session, 
@@ -26,11 +34,42 @@ from streamlit_.streamlit_utils import (
     switch_session
 )
 
-load_dotenv(dotenv_path="./config/.env")
-client = vision.ImageAnnotatorClient()
+# Load environment variables
+load_dotenv()
+
+# Debug: Check if API key is loaded
+api_key = os.getenv("API_KEY") or os.getenv("OPENAI_API_KEY")
+if api_key:
+    print(f"✅ API key loaded: {api_key[:10]}...")
+else:
+    print("❌ No API key found in environment variables")
+    print(f"Current working directory: {os.getcwd()}")
+    print(f"Environment API_KEY: {os.getenv('API_KEY')}")
+    print(f"Environment OPENAI_API_KEY: {os.getenv('OPENAI_API_KEY')}")
+
+# Initialize Vision client only if available
+if VISION_ENABLED:
+    try:
+        client = vision.ImageAnnotatorClient()
+    except Exception as e:
+        VISION_ENABLED = False
+        print(f"⚠️ Google Vision API credentials not found: {e}")
+        client = None
+else:
+    client = None
 
 def process_image_with_vision(image_file):
     """Process uploaded image with Google Vision API to detect landmarks"""
+    # Check if Vision API is available
+    if not VISION_ENABLED or client is None:
+        return {
+            'success': False,
+            'landmarks': [],
+            'labels': [],
+            'text': '',
+            'error': 'Google Vision API not available'
+        }
+    
     try:
         image_content = image_file.read()
         image_file.seek(0)  # Reseting file pointer for display

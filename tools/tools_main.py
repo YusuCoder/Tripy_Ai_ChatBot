@@ -1,15 +1,11 @@
 import os 
 from dotenv import load_dotenv
-from langchain.chat_models.base import init_chat_model
-from langchain.agents import create_tool_calling_agent, AgentExecutor
-from langchain_core.runnables.history import RunnableWithMessageHistory
-from langfuse.langchain import CallbackHandler
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+# Removed unused imports to prevent compatibility issues
 
 
 def tools_handler():
     """Initialize and return the tools handler"""
-    load_dotenv(dotenv_path="./config/.env") 
+    load_dotenv()  # Load from .env file in current directory 
     try:
         langfuse_secret = os.getenv("LANGFUSE_SECRET_KEY")
         langfuse_public = os.getenv("LANGFUSE_PUBLIC_KEY") 
@@ -23,6 +19,7 @@ def tools_handler():
         os.environ["LANGFUSE_PUBLIC_KEY"] = langfuse_public
         os.environ["LANGFUSE_HOST"] = langfuse_host
 
+        from langfuse.langchain import CallbackHandler
         langfuse_handler = CallbackHandler()
 
         print("Langfuse handler initialized successfully.")
